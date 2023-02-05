@@ -156,7 +156,7 @@ fn export(output: Output, triangle_vertices: Vec::<Vertex>, filename: String) {
     let mesh = json::Mesh {
         extensions: Default::default(),
         extras: Default::default(),
-        name: Some("my_mesh".to_string()),
+        name: Some(filename.to_string() + "_mesh"),
         primitives: vec![primitive],
         weights: None,
     };
