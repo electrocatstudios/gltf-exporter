@@ -1,6 +1,6 @@
 use gltf_json as json;
 
-use std::{fs, mem, vec};
+use std::{fs, mem, vec, env};
 
 use json::validation::Checked::Valid;
 use std::borrow::Cow;
@@ -193,13 +193,13 @@ fn export(output: Output, triangle_vertices: Vec::<Vertex>, filename: String) {
 
     match output {
         Output::Standard => {
-            let _ = fs::create_dir(filename.to_string());
+            let _ = fs::create_dir("./output/".to_owned() + &filename.to_string());
 
-            let writer = fs::File::create(filename.to_string() + "/" + &filename.to_string() + ".gltf").expect("I/O error");
+            let writer = fs::File::create("./output/".to_owned() + &filename.to_string() + "/" + &filename.to_string() + ".gltf").expect("I/O error");
             json::serialize::to_writer_pretty(writer, &root).expect("Serialization error");
 
             let bin = to_padded_byte_vector(triangle_vertices);
-            let mut writer = fs::File::create(filename.to_string() + "/" + &filename.to_string() + ".bin").expect("I/O error");
+            let mut writer = fs::File::create("./output/".to_owned() + &filename.to_string() + "/" + &filename.to_string() + ".bin").expect("I/O error");
             writer.write_all(&bin).expect("I/O error");
         }
         Output::Binary => {
@@ -215,7 +215,7 @@ fn export(output: Output, triangle_vertices: Vec::<Vertex>, filename: String) {
                 bin: Some(Cow::Owned(to_padded_byte_vector(triangle_vertices))),
                 json: Cow::Owned(json_string.into_bytes()),
             };
-            let writer = std::fs::File::create(filename.to_string() + ".glb").expect("I/O error");
+            let writer = std::fs::File::create("./output/".to_owned() + &filename.to_string() + "/" + &filename.to_string() + ".glb").expect("I/O error");
             glb.to_writer(writer).expect("glTF binary output error");
         }
     }
@@ -231,15 +231,31 @@ where P: AsRef<Path>, {
 
 fn main() {
     let mut triangle_vertices: Vec::<Vertex> = Vec::new();
-    let filename = "face";
-    // Read in file name for passed arguments
+    
+    let args: Vec<String> = env::args().collect();
+    // dbg!(args);
+    if args.len() < 2 {
+        println!("Please pass in a filename to input");
+        return;
+    }
 
-    if let Ok(lines) = read_lines("./".to_owned() + &filename.to_string() +".txt") {
+    let filepath = &args[1];
+    let binding = filepath.to_string();
+    let path = Path::new(&binding);
+    if !path.exists() {
+        println!("File does not exist");
+        return;
+    }
+    let filecomponents = filepath.split("/").collect::<Vec<&str>>().last().expect("Split incorrectly").to_string(); 
+    let filename = filecomponents.split(".").collect::<Vec<&str>>().first().expect("Something went wrong getting filename").to_string();
+
+    // Read in file name for passed arguments
+    if let Ok(lines) = read_lines(filename.to_string() + ".txt") {
         for (idx, line_buf) in lines.enumerate() {
             if let Ok(line) = line_buf {
                 let split_line = line.split(",");
                 let vec = split_line.collect::<Vec<&str>>();
-                if vec.len() == 9 {
+                if vec.len() == 8 {
                     // Points x,y,z
                     let pt1: f32 = vec[0].trim().parse::<f32>().unwrap();
                     let pt2: f32 = vec[1].trim().parse::<f32>().unwrap();
