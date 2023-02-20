@@ -250,7 +250,7 @@ fn main() {
     let filename = filecomponents.split(".").collect::<Vec<&str>>().first().expect("Something went wrong getting filename").to_string();
 
     // Read in file name for passed arguments
-    if let Ok(lines) = read_lines(filename.to_string() + ".txt") {
+    if let Ok(lines) = read_lines("inputs/".to_owned() + &filename.to_string() + ".txt") {
         for (idx, line_buf) in lines.enumerate() {
             if let Ok(line) = line_buf {
                 let split_line = line.split(",");
