@@ -269,7 +269,6 @@ fn main() {
             }
         }
     }
-    println!("At start found {} triangles", triangle_vertices.len());
     export(Output::Standard, triangle_vertices.to_owned(), filename.to_string());
     export(Output::Binary, triangle_vertices.to_owned(), filename.to_string());
 }
