@@ -28,3 +28,34 @@ You can link to another file (relative to the file the line is in) by using the 
 `>filename, x_offset, y_offset, z_offset, rot_x, rot_y, rot_z`
 or
 `>filename, x_offset, y_offset, z_offset, rot_y`
+
+## Example composite
+This example combines a flat plane (front and back) and then stacks and rotates some cubes. It can
+be compiled using `cargo run -- examples/composite.txt`. 
+
+The code is:
+
+```
+#GroundPlane
+2.5,-1.5,-2.5,0.0,1.0,0.0,1.0,1.0
+-2.5,-1.5,-2.5,0.0,1.0,0.0,0.0,1.0
+2.5,-1.5,2.5,0.0,1.0,0.0,1.0,0.0
+-2.5,-1.5,-2.5,0.0,1.0,0.0,0.0,1.0
+-2.5,-1.5,2.5,0.0,1.0,0.0,0.0,0.0
+2.5,-1.5,2.5,0.0,1.0,0.0,1.0,0.0
+#Grounplane-reflect
+-2.5,-1.5,-2.5,0.0,1.0,0.0,0.0,1.0
+2.5,-1.5,-2.5,0.0,1.0,0.0,1.0,1.0
+2.5,-1.5,2.5,0.0,1.0,0.0,1.0,0.0
+-2.5,-1.5,2.5,0.0,1.0,0.0,0.0,0.0
+-2.5,-1.5,-2.5,0.0,1.0,0.0,0.0,1.0
+2.5,-1.5,2.5,0.0,1.0,0.0,1.0,0.0
+#HouseBase - x,y,z,rot
+>./cube.txt,-1.0,-0.99,0.0,0.7
+>./cube.txt,0.0,0.0,0.0,0.4,0.0,0.0
+>./cube.txt,1.0,0.0,0.0,0.7,0.7,0.7
+```
+
+And this will give a similar output to this:
+
+![Compostie blocks output](screenshot.png "Example Composite Output")
