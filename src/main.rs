@@ -4,7 +4,7 @@ use std::{fs, mem, vec, env};
 
 use json::validation::Checked::Valid;
 use std::borrow::Cow;
-use std::io::{Write}; //BufReader
+use std::io::Write;
 use std::fs::File;
 use std::io::{self, BufRead};
 use std::path::Path;
