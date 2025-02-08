@@ -237,38 +237,50 @@ fn main() {
     let filename = filecomponents.split(".").collect::<Vec<&str>>().first().expect("Something went wrong getting filename").to_string();
 
     // Read in file name for passed arguments
-    if let Ok(lines) = read_lines(filename.to_string() + ".txt") {
+    if let Ok(lines) = read_lines(filepath) {
         for (idx, line_buf) in lines.enumerate() {
             if let Ok(line) = line_buf {
-                let split_line = line.split(",");
-                let vec = split_line.collect::<Vec<&str>>();
-                if vec.len() == 8 {
-                    // Points x,y,z
-                    let pt1: f32 = vec[0].trim().parse::<f32>().unwrap();
-                    let pt2: f32 = vec[1].trim().parse::<f32>().unwrap();
-                    let pt3: f32 = vec[2].trim().parse::<f32>().unwrap();
-                    // Colors r,g,b
-                    let red: f32 = vec[3].trim().parse::<f32>().unwrap();
-                    let green: f32 = vec[4].trim().parse::<f32>().unwrap();
-                    let blue: f32 = vec[5].trim().parse::<f32>().unwrap();
 
-                    // Texture Coordinates
-                    let uv_x: f32 = vec[6].trim().parse::<f32>().unwrap();
-                    let uv_y: f32 = vec[7].trim().parse::<f32>().unwrap();
-                    
-                    let vtx = Vertex{
-                        position: [pt1, pt2, pt3],
-                        color: [red, green, blue],
-                        normal: [uv_x, uv_y],
-                    };
-                    triangle_vertices.push(vtx);
-                }else{
-                    println!("Skipping line {} as it is {} items long", idx, vec.len());
+                if line.chars().next().unwrap() != '#' {
+                    match process_line_of_vertices(line, idx) {
+                        Some(nxt) => triangle_vertices.push(nxt),
+                        None => {}
+                    }
                 }
-                
             }
         }
     }
     export(Output::Standard, triangle_vertices.to_owned(), filename.to_string());
     export(Output::Binary, triangle_vertices.to_owned(), filename.to_string());
+}
+
+fn process_line_of_vertices(line: String, line_num: usize) -> Option<Vertex> {
+    let split_line = line.split(",");
+    let mut ret: Option<Vertex> = None;
+
+    let vec = split_line.collect::<Vec<&str>>();
+    if vec.len() == 8 {
+        // Points x,y,z
+        let pt1: f32 = vec[0].trim().parse::<f32>().unwrap();
+        let pt2: f32 = vec[1].trim().parse::<f32>().unwrap();
+        let pt3: f32 = vec[2].trim().parse::<f32>().unwrap();
+        // Colors r,g,b
+        let red: f32 = vec[3].trim().parse::<f32>().unwrap();
+        let green: f32 = vec[4].trim().parse::<f32>().unwrap();
+        let blue: f32 = vec[5].trim().parse::<f32>().unwrap();
+
+        // Texture Coordinates
+        let uv_x: f32 = vec[6].trim().parse::<f32>().unwrap();
+        let uv_y: f32 = vec[7].trim().parse::<f32>().unwrap();
+        
+        ret = Some(Vertex{
+            position: [pt1, pt2, pt3],
+            color: [red, green, blue],
+            normal: [uv_x, uv_y],
+        });
+
+    }else{
+        println!("WARNING: Skipping line {} as it is {} items long, and unrecognized", line_num, vec.len());
+    }
+    ret                    
 }
