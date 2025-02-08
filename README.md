@@ -21,3 +21,10 @@ eg.
 `cargo run -- examples/plane.txt`
 
 This will output the GLTF file into the output folder, it will have the same name as the input file.
+
+## Composite files
+You can link to another file (relative to the file the line is in) by using the following syntax
+
+`>filename, x_offset, y_offset, z_offset, rot_x, rot_y, rot_z`
+or
+`>filename, x_offset, y_offset, z_offset, rot_y`

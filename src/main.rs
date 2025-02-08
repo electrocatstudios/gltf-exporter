@@ -11,6 +11,14 @@ use std::path::Path;
 
 use json::validation::USize64;
 
+use euclid::{point3, Angle, Point3D, Rotation3D};
+
+use offset::Offset;
+use composite::Composite;
+
+mod offset;
+mod composite;
+
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 enum Output {
     /// Output standard glTF.
@@ -73,7 +81,7 @@ fn export(output: Output, triangle_vertices: Vec::<Vertex>, filename: String) {
         name: None,
         uri: if output == Output::Standard {
             let bin_fn = format!("{}.bin", &filename.to_string());
-            println!("{}",bin_fn);
+            // println!("{}",bin_fn);
             Some(bin_fn)
         } else {
             None
@@ -217,8 +225,6 @@ where P: AsRef<Path>, {
 }
 
 fn main() {
-    let mut triangle_vertices: Vec::<Vertex> = Vec::new();
-    
     let args: Vec<String> = env::args().collect();
     // dbg!(args);
     if args.len() < 2 {
@@ -233,37 +239,79 @@ fn main() {
         println!("File does not exist");
         return;
     }
+    
+    let triangle_vertices: Vec::<Vertex> = get_vertices_from_file(&filepath, None);
+
     let filecomponents = filepath.split("/").collect::<Vec<&str>>().last().expect("Split incorrectly").to_string(); 
     let filename = filecomponents.split(".").collect::<Vec<&str>>().first().expect("Something went wrong getting filename").to_string();
 
-    // Read in file name for passed arguments
-    if let Ok(lines) = read_lines(filepath) {
+    export(Output::Standard, triangle_vertices.to_owned(), filename.to_string());
+    export(Output::Binary, triangle_vertices.to_owned(), filename.to_string());
+}
+
+
+
+fn get_vertices_from_file(filepath: &String, offsets: Option<Offset>) -> Vec::<Vertex> {
+     // Read in file name for passed arguments
+     let mut ret: Vec::<Vertex> = Vec::new();
+
+     if let Ok(lines) = read_lines(filepath) {
         for (idx, line_buf) in lines.enumerate() {
             if let Ok(line) = line_buf {
+                if line.trim() == "".to_string(){
+                    continue;
+                }
 
-                if line.chars().next().unwrap() != '#' {
-                    match process_line_of_vertices(line, idx) {
-                        Some(nxt) => triangle_vertices.push(nxt),
+                if line.chars().next().unwrap() == '>' {
+                    let offsets = Offset::from_string(&line, idx);
+                    let comp = Composite::from_string(&line, idx, &filepath);
+                    ret.append(&mut get_vertices_from_file(&comp.filename, Some(offsets)))
+                } else if line.chars().next().unwrap() != '#' {
+                    match process_line_of_vertices(line, idx, &offsets) {
+                        Some(nxt) => ret.push(nxt),
                         None => {}
                     }
                 }
             }
         }
     }
-    export(Output::Standard, triangle_vertices.to_owned(), filename.to_string());
-    export(Output::Binary, triangle_vertices.to_owned(), filename.to_string());
+    ret
 }
 
-fn process_line_of_vertices(line: String, line_num: usize) -> Option<Vertex> {
+fn process_line_of_vertices(line: String, line_num: usize, offsets: &Option<Offset>) -> Option<Vertex> {
     let split_line = line.split(",");
     let mut ret: Option<Vertex> = None;
 
     let vec = split_line.collect::<Vec<&str>>();
     if vec.len() == 8 {
         // Points x,y,z
-        let pt1: f32 = vec[0].trim().parse::<f32>().unwrap();
-        let pt2: f32 = vec[1].trim().parse::<f32>().unwrap();
-        let pt3: f32 = vec[2].trim().parse::<f32>().unwrap();
+        let (pt1, pt2, pt3) = match offsets {
+            Some(offsets) => {
+                let rot3d: Rotation3D<f32, _, _> = Rotation3D::euler(
+                    Angle::radians(offsets.rot.x),
+                    Angle::radians(offsets.rot.y),
+                    Angle::radians(offsets.rot.z)
+                );
+                let x = vec[0].trim().parse::<f32>().unwrap();
+                let y = vec[1].trim().parse::<f32>().unwrap();
+                let z = vec[2].trim().parse::<f32>().unwrap();
+                let p: Point3D<f32, ()> = point3(x, y, z);
+                let out: Point3D<f32, ()> = rot3d.transform_point3d(p);
+                (
+                    out.x + offsets.loc.x,
+                    out.y + offsets.loc.y,
+                    out.z + offsets.loc.z
+                )
+            },
+            None =>{
+                (
+                    vec[0].trim().parse::<f32>().unwrap(),
+                    vec[1].trim().parse::<f32>().unwrap(),
+                    vec[2].trim().parse::<f32>().unwrap()
+                )
+            }
+        };
+
         // Colors r,g,b
         let red: f32 = vec[3].trim().parse::<f32>().unwrap();
         let green: f32 = vec[4].trim().parse::<f32>().unwrap();
