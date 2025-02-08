@@ -30,11 +30,11 @@ struct Vertex {
 
 /// Calculate bounding coordinates of a list of vertices, used for the clipping distance of the model
 fn bounding_coords(points: &[Vertex]) -> ([f32; 3], [f32; 3]) {
-    let mut min = [0., 0., 0.];
-    let mut max = [0., 0., 0.];
+    let mut min = [f32::MAX, f32::MAX, f32::MAX];
+    let mut max = [f32::MIN, f32::MIN, f32::MIN];
 
     for point in points {
-        let p = point.position;
+        let p: [f32; 3] = point.position;
         for i in 0..3 {
             min[i] = f32::min(min[i], p[i]);
             max[i] = f32::max(max[i], p[i]);
@@ -107,7 +107,7 @@ fn export(output: Output, triangle_vertices: Vec::<Vertex>, filename: String) {
         sparse: None,
     });
     let colors = root.push(json::Accessor {
-        buffer_view: Some(json::Index::new(0)),
+        buffer_view: Some(buffer_view),
         byte_offset: Some(USize64::from(3 * mem::size_of::<f32>())),
         count: USize64::from(triangle_vertices.len()),
         component_type: Valid(json::accessor::GenericComponentType(
@@ -124,7 +124,7 @@ fn export(output: Output, triangle_vertices: Vec::<Vertex>, filename: String) {
     });
 
     let normals = root.push(json::Accessor {
-        buffer_view: Some(json::Index::new(0)),
+        buffer_view: Some(buffer_view),
         byte_offset: Some(USize64::from(6 * mem::size_of::<f32>())),
         count: USize64::from(triangle_vertices.len()),
         component_type: Valid(json::accessor::GenericComponentType(
@@ -164,20 +164,6 @@ fn export(output: Output, triangle_vertices: Vec::<Vertex>, filename: String) {
         weights: None,
     });
 
-    // let node = root.push(json::Node {
-    //     camera: None,
-    //     children: None,
-    //     extensions: Default::default(),
-    //     extras: Default::default(),
-    //     matrix: None,
-    //     mesh: Some(json::Index::new(0)),
-    //     name: None,
-    //     rotation: None,
-    //     scale: None,
-    //     translation: None,
-    //     skin: None,
-    //     weights: None,
-    // });
     let node = root.push(json::Node {
         mesh: Some(mesh),
         ..Default::default()
@@ -251,7 +237,7 @@ fn main() {
     let filename = filecomponents.split(".").collect::<Vec<&str>>().first().expect("Something went wrong getting filename").to_string();
 
     // Read in file name for passed arguments
-    if let Ok(lines) = read_lines("inputs/".to_owned() + &filename.to_string() + ".txt") {
+    if let Ok(lines) = read_lines(filename.to_string() + ".txt") {
         for (idx, line_buf) in lines.enumerate() {
             if let Ok(line) = line_buf {
                 let split_line = line.split(",");
@@ -283,7 +269,7 @@ fn main() {
             }
         }
     }
-
+    println!("At start found {} triangles", triangle_vertices.len());
     export(Output::Standard, triangle_vertices.to_owned(), filename.to_string());
     export(Output::Binary, triangle_vertices.to_owned(), filename.to_string());
 }
