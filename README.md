@@ -18,6 +18,6 @@ See `plane.txt` for an example of a flat surface, remember that triangles only r
 
 ## Running the app
 eg.
-`cargo run -- plane.txt`
+`cargo run -- examples/plane.txt`
 
 This will output the GLTF file into the output folder, it will have the same name as the input file.
