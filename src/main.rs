@@ -1,10 +1,9 @@
 use gltf_json as json;
 
 use std::{fs, mem, vec, env};
-
+use base64::prelude::*;
 use json::validation::Checked::Valid;
 use std::borrow::Cow;
-use std::io::Write;
 use std::fs::File;
 use std::io::{self, BufRead};
 use std::path::Path;
@@ -18,6 +17,7 @@ use composite::Composite;
 
 mod offset;
 mod composite;
+mod utils;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 enum Output {
@@ -33,7 +33,7 @@ enum Output {
 struct Vertex {
     position: [f32; 3],
     color: [f32; 3],
-    normal: [f32; 2]
+    uv_points: [f32; 2]
 }
 
 /// Calculate bounding coordinates of a list of vertices, used for the clipping distance of the model
@@ -67,7 +67,16 @@ fn to_padded_byte_vector<T>(vec: Vec<T>) -> Vec<u8> {
     new_vec
 }
 
-fn export(output: Output, triangle_vertices: Vec::<Vertex>, filename: String) {
+fn get_bin_data_as_string(triangle_vertices: Vec::<Vertex>) -> String {
+      
+    let bin = to_padded_byte_vector(triangle_vertices);
+    let base64_data = BASE64_STANDARD.encode(&bin);
+
+    // Create data URI
+    format!("data:application/octet-stream;base64,{}", base64_data)
+}
+
+fn export(output: Output, triangle_vertices: Vec::<Vertex>, _normals: Vec<[f32; 3]>, filename: String) {
     
     let (min, max) = bounding_coords(&triangle_vertices);
 
@@ -80,9 +89,7 @@ fn export(output: Output, triangle_vertices: Vec::<Vertex>, filename: String) {
         extras: Default::default(),
         name: None,
         uri: if output == Output::Standard {
-            let bin_fn = format!("{}.bin", &filename.to_string());
-            // println!("{}",bin_fn);
-            Some(bin_fn)
+           Some(get_bin_data_as_string(triangle_vertices.clone()))
         } else {
             None
         },
@@ -130,8 +137,7 @@ fn export(output: Output, triangle_vertices: Vec::<Vertex>, filename: String) {
         normalized: false,
         sparse: None,
     });
-
-    let normals = root.push(json::Accessor {
+    let tex_coords = root.push(json::Accessor {
         buffer_view: Some(buffer_view),
         byte_offset: Some(USize64::from(6 * mem::size_of::<f32>())),
         count: USize64::from(triangle_vertices.len()),
@@ -147,13 +153,30 @@ fn export(output: Output, triangle_vertices: Vec::<Vertex>, filename: String) {
         normalized: false,
         sparse: None,
     });
+    // let normals = root.push(json::Accessor {
+    //     buffer_view: Some(buffer_view),
+    //     byte_offset: Some(USize64::from(6 * mem::size_of::<f32>())),
+    //     count: USize64::from(normals.len()),
+    //     component_type: Valid(json::accessor::GenericComponentType(
+    //         json::accessor::ComponentType::F32,
+    //     )),
+    //     extensions: Default::default(),
+    //     extras: Default::default(),
+    //     type_: Valid(json::accessor::Type::Vec2),
+    //     min: None,
+    //     max: None,
+    //     name: None,
+    //     normalized: false,
+    //     sparse: None,
+    // });
 
     let primitive = json::mesh::Primitive {
         attributes: {
             let mut map = std::collections::BTreeMap::new();
             map.insert(Valid(json::mesh::Semantic::Positions), positions);
             map.insert(Valid(json::mesh::Semantic::Colors(0)), colors);
-            map.insert(Valid(json::mesh::Semantic::TexCoords(0)), normals);
+            map.insert(Valid(json::mesh::Semantic::TexCoords(0)), tex_coords);
+            // map.insert(Valid(json::mesh::Semantic::Normals), normals.clone());
             map
         },
         extensions: Default::default(),
@@ -190,15 +213,12 @@ fn export(output: Output, triangle_vertices: Vec::<Vertex>, filename: String) {
 
             let writer = fs::File::create("./output/".to_owned() + &filename.to_string() + "/" + &filename.to_string() + ".gltf").expect("I/O error");
             json::serialize::to_writer_pretty(writer, &root).expect("Serialization error");
-
-            let bin = to_padded_byte_vector(triangle_vertices);
-            let mut writer = fs::File::create("./output/".to_owned() + &filename.to_string() + "/" + &filename.to_string() + ".bin").expect("I/O error");
-            writer.write_all(&bin).expect("I/O error");
         }
         Output::Binary => {
             let json_string = json::serialize::to_string(&root).expect("Serialization error");
             let mut json_offset = json_string.len() as u32;
             align_to_multiple_of_four(&mut json_offset);
+            
             let glb = gltf::binary::Glb {
                 header: gltf::binary::Header {
                     magic: *b"glTF",
@@ -245,10 +265,11 @@ fn main() {
     let filecomponents = filepath.split("/").collect::<Vec<&str>>().last().expect("Split incorrectly").to_string(); 
     let filename = filecomponents.split(".").collect::<Vec<&str>>().first().expect("Something went wrong getting filename").to_string();
 
-    export(Output::Standard, triangle_vertices.to_owned(), filename.to_string());
-    export(Output::Binary, triangle_vertices.to_owned(), filename.to_string());
-}
+    let normals: Vec<[f32; 3]> = utils::get_normals_for_points(&triangle_vertices);
 
+    export(Output::Standard, triangle_vertices.to_owned(), normals.to_owned(), filename.to_string());
+    export(Output::Binary, triangle_vertices.to_owned(), normals.to_owned(),filename.to_string());
+}
 
 
 fn get_vertices_from_file(filepath: &String, offsets: Option<Offset>) -> Vec::<Vertex> {
@@ -320,11 +341,11 @@ fn process_line_of_vertices(line: String, line_num: usize, offsets: &Option<Offs
         // Texture Coordinates
         let uv_x: f32 = vec[6].trim().parse::<f32>().unwrap();
         let uv_y: f32 = vec[7].trim().parse::<f32>().unwrap();
-        
+
         ret = Some(Vertex{
             position: [pt1, pt2, pt3],
             color: [red, green, blue],
-            normal: [uv_x, uv_y],
+            uv_points: [uv_x, uv_y],
         });
 
     }else{

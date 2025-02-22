@@ -6,6 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+base64 = "0.22.1"
 euclid = "0.22.11"
 gltf = { version = "1.4.1" }
 gltf-json = { version = "1.4.1" }
