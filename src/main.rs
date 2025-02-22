@@ -33,7 +33,8 @@ enum Output {
 struct Vertex {
     position: [f32; 3],
     color: [f32; 3],
-    uv_points: [f32; 2]
+    uv_points: [f32; 2],
+    normal: [f32; 3]
 }
 
 /// Calculate bounding coordinates of a list of vertices, used for the clipping distance of the model
@@ -67,8 +68,8 @@ fn to_padded_byte_vector<T>(vec: Vec<T>) -> Vec<u8> {
     new_vec
 }
 
-fn get_bin_data_as_string(triangle_vertices: Vec::<Vertex>) -> String {
-      
+fn get_bin_data_as_string<T>(triangle_vertices: Vec::<T>) -> String {
+
     let bin = to_padded_byte_vector(triangle_vertices);
     let base64_data = BASE64_STANDARD.encode(&bin);
 
@@ -76,8 +77,8 @@ fn get_bin_data_as_string(triangle_vertices: Vec::<Vertex>) -> String {
     format!("data:application/octet-stream;base64,{}", base64_data)
 }
 
-fn export(output: Output, triangle_vertices: Vec::<Vertex>, _normals: Vec<[f32; 3]>, filename: String) {
-    
+fn export(output: Output, triangle_vertices: Vec::<Vertex>, filename: String) {
+
     let (min, max) = bounding_coords(&triangle_vertices);
 
     let mut root = gltf_json::Root::default();
@@ -153,22 +154,22 @@ fn export(output: Output, triangle_vertices: Vec::<Vertex>, _normals: Vec<[f32; 
         normalized: false,
         sparse: None,
     });
-    // let normals = root.push(json::Accessor {
-    //     buffer_view: Some(buffer_view),
-    //     byte_offset: Some(USize64::from(6 * mem::size_of::<f32>())),
-    //     count: USize64::from(normals.len()),
-    //     component_type: Valid(json::accessor::GenericComponentType(
-    //         json::accessor::ComponentType::F32,
-    //     )),
-    //     extensions: Default::default(),
-    //     extras: Default::default(),
-    //     type_: Valid(json::accessor::Type::Vec2),
-    //     min: None,
-    //     max: None,
-    //     name: None,
-    //     normalized: false,
-    //     sparse: None,
-    // });
+    let normals = root.push(json::Accessor {
+        buffer_view: Some(buffer_view),
+        byte_offset: Some(USize64::from(8 * mem::size_of::<f32>())),
+        count: USize64::from(triangle_vertices.len()),
+        component_type: Valid(json::accessor::GenericComponentType(
+            json::accessor::ComponentType::F32,
+        )),
+        extensions: Default::default(),
+        extras: Default::default(),
+        type_: Valid(json::accessor::Type::Vec3),
+        min: None,
+        max: None,
+        name: None,
+        normalized: false,
+        sparse: None,
+    });
 
     let primitive = json::mesh::Primitive {
         attributes: {
@@ -176,7 +177,7 @@ fn export(output: Output, triangle_vertices: Vec::<Vertex>, _normals: Vec<[f32; 
             map.insert(Valid(json::mesh::Semantic::Positions), positions);
             map.insert(Valid(json::mesh::Semantic::Colors(0)), colors);
             map.insert(Valid(json::mesh::Semantic::TexCoords(0)), tex_coords);
-            // map.insert(Valid(json::mesh::Semantic::Normals), normals.clone());
+            map.insert(Valid(json::mesh::Semantic::Normals), normals);
             map
         },
         extensions: Default::default(),
@@ -199,7 +200,7 @@ fn export(output: Output, triangle_vertices: Vec::<Vertex>, _normals: Vec<[f32; 
         mesh: Some(mesh),
         ..Default::default()
     });
-    
+
     root.push(json::Scene {
         extensions: Default::default(),
         extras: Default::default(),
@@ -218,7 +219,7 @@ fn export(output: Output, triangle_vertices: Vec::<Vertex>, _normals: Vec<[f32; 
             let json_string = json::serialize::to_string(&root).expect("Serialization error");
             let mut json_offset = json_string.len() as u32;
             align_to_multiple_of_four(&mut json_offset);
-            
+
             let glb = gltf::binary::Glb {
                 header: gltf::binary::Header {
                     magic: *b"glTF",
@@ -259,16 +260,20 @@ fn main() {
         println!("File does not exist");
         return;
     }
-    
-    let triangle_vertices: Vec::<Vertex> = get_vertices_from_file(&filepath, None);
 
-    let filecomponents = filepath.split("/").collect::<Vec<&str>>().last().expect("Split incorrectly").to_string(); 
+    let mut triangle_vertices: Vec::<Vertex> = get_vertices_from_file(&filepath, None);
+
+    let filecomponents = filepath.split("/").collect::<Vec<&str>>().last().expect("Split incorrectly").to_string();
     let filename = filecomponents.split(".").collect::<Vec<&str>>().first().expect("Something went wrong getting filename").to_string();
 
     let normals: Vec<[f32; 3]> = utils::get_normals_for_points(&triangle_vertices);
+    for (idx, n) in triangle_vertices.iter_mut().enumerate() {
+        let n_idx = idx / 3;
+        n.normal = normals[n_idx];
+    }
 
-    export(Output::Standard, triangle_vertices.to_owned(), normals.to_owned(), filename.to_string());
-    export(Output::Binary, triangle_vertices.to_owned(), normals.to_owned(),filename.to_string());
+    export(Output::Standard, triangle_vertices.to_owned(), filename.to_string());
+    export(Output::Binary, triangle_vertices.to_owned(),filename.to_string());
 }
 
 
@@ -346,10 +351,11 @@ fn process_line_of_vertices(line: String, line_num: usize, offsets: &Option<Offs
             position: [pt1, pt2, pt3],
             color: [red, green, blue],
             uv_points: [uv_x, uv_y],
+            normal: [0.0, 0.0, 0.0]
         });
 
     }else{
         println!("WARNING: Skipping line {} as it is {} items long, and unrecognized", line_num, vec.len());
     }
-    ret                    
+    ret
 }
