@@ -19,7 +19,7 @@ img = Image.new(mode="RGB", size=(width, height))
 width_len = int(width/4)
 height_len = int(height/4)
 
-dot_size = 10
+dot_size = 18
 
 #left side - one
 tl = 0
